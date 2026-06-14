@@ -198,7 +198,7 @@ Concurrent Requests - 5 simultaneous identical requests → 1 processes, 4 wait 
 Validation - Missing headers/invalid data → proper 400 responses
 
 Running Performance Tests
-bash
+
 # Test concurrent request handling
 npm run test:concurrency
 
