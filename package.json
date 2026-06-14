@@ -1,0 +1,25 @@
+{
+  "name": "idempotency-gateway",
+  "version": "1.0.0",
+  "description": "FinSafe Idempotency Gateway - Pay Once Protocol with PostgreSQL",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "jest",
+    "test:concurrency": "jest tests/concurrency.test.js",
+    "db:migrate": "node src/migrations/migrate.js",
+    "db:seed": "node src/migrations/seed.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "pg": "^8.11.3",
+    "pg-pool": "^3.6.1",
+    "crypto": "^1.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "nodemon": "^3.0.1"
+  }
+}
