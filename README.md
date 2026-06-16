@@ -114,10 +114,8 @@ npm test
 npm run test:concurrency
 ```
 
-````markdown
 ### Option 2: Docker Setup 
-
-```bash
+```
 # Start PostgreSQL and app together
 docker-compose up -d
 
@@ -129,13 +127,14 @@ docker-compose down
 ```
 
 ## Environment Variables
-
+```
 | Variable | Default | Description |
 |----------|---------|-------------|
 | PORT | 3000 | Server port |
 | NODE_ENV | development | environment mode |
 | IDEMPOTENCY_TTL_HOURS | 24 hours | How long to store keys |
 | PROCESSING_DELAY_MS | 2000ms | Simulated payment delay |
+```
 
 ## API Documentation
 ### Endpoint: POST /process-payment
@@ -187,12 +186,13 @@ X-Cache-Hit	true if response was from cache or duplicate, false if freshly proce
 {
   "error": "Internal server error"
 }
-```
-```markdown
-### Additional Endpoints
 
-- **GET /health** - Health check endpoint for monitoring
-- **GET /stats** - Admin endpoint for system monitoring
+### Additional Endpoints
+- GET /health
+Health check endpoint for monitoring.
+- GET /stats
+Admin endpoint for system monitoring.
+
 
 ## 4. Design Decisions
 
