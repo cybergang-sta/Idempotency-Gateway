@@ -194,7 +194,25 @@ GET /stats                  Admin endpoint for system monitoring.
 
 ### 5. Design Decisions
 
-### Decision 1: PostgreSQL over In-Memory Storage
+### Decision 1: Migration from In-Memory Store to PostgreSQL
+
+**Why I started with in-Memory Store**
+    **Speed: Sub-millisecond lookups (<1ms)**
+
+    **Simplicity: No external dependencies**
+
+    **Development Speed: Quick prototyping**
+
+    **Zero Configuration: No database setup needed**
+
+**Why I Migrated:**
+    **No Persistence: Thus, data Loss on Restart**
+    **Unexpected crashes would cause double charges**
+    **New instances start with empty memory**
+    **No audit trail for transactions**
+
+    
+### Decision 2: PostgreSQL over In-Memory Storage
 
 **Choice:** PostgreSQL for production, in-memory Map for development
 
@@ -205,9 +223,9 @@ GET /stats                  Admin endpoint for system monitoring.
 - **Scalability:** Can handle millions of keys, unlike RAM-limited Map
 - **Query Capability:** SQL analytics for fraud detection
 
-**Trade-off:** Slightly higher latency (~2-5ms vs <1ms for Map), but worth it for persistence
+**Trade-off:** Slightly higher latency (~2-5ms, but worth it for persistence
 
-### Decision 2: Atomic Database Operation Pattern
+### Decision 3: Atomic Database Operation Pattern
 
 **Implementation:** PostgreSQL function with `SELECT FOR UPDATE`
 
@@ -221,7 +239,7 @@ END;
 $$;
 
 
-### Decision 3: In-Flight Request Handling with Row Locking
+### Decision 4: In-Flight Request Handling with Row Locking
 
 -- Status 'processing' indicates in-flight request
 INSERT INTO idempotency_store (idempotency_key, status) 
@@ -241,7 +259,7 @@ Eliminates the need for application-level mutexes
 
 Works across multiple server instances
 
-### Decision 4: 24-Hour TTL with Automated Cleanup
+### Decision 5: 24-Hour TTL with Automated Cleanup
 
 -- Set expiration when creating record
 expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '24 hours'
@@ -260,7 +278,7 @@ Short enough to prevent unbounded database growth
 Compliant with GDPR data minimization principles
 
 
-### Decision 5: Separate Audit Log Table Design
+### Decision 6: Separate Audit Log Table Design
 Schema:
     CREATE TABLE idempotency_audit_log (
   id BIGSERIAL PRIMARY KEY,
@@ -281,12 +299,12 @@ Compliance: Audit logs can be archived separately
 
 Analytics: Query patterns without locking main table
 
-### Decision 6: 409 Conflict vs 422 Unprocessable Entity
+### Decision 7: 409 Conflict vs 422 Unprocessable Entity
 Choice: HTTP 409 Conflict
 
 This specifies 409 for "request conflict with current state of the resource" - perfect for idempotency key mismatch where the key already maps to a different request body. 422 is for validation errors such as invalid currency code.
 
-### Decision 7: Graceful Shutdown with Connection Draining
+### Decision 8: Graceful Shutdown with Connection Draining
 process.on('SIGTERM', async () => {
   console.log('Received SIGTERM, closing server...');
   server.close(async () => {
@@ -305,7 +323,7 @@ Allows in-flight transactions to complete
 Enables zero-downtime deployments
 
 
-### Decision 8: Request Body Hashing with SHA256
+### Decision 9: Request Body Hashing with SHA256
 
 **Implementation:**
 ```javascript
@@ -323,7 +341,28 @@ Index Performance: Hash indexes are faster than JSONB comparisons
 
 Security: Cannot reconstruct original request from hash alone
 
+### Decision 10: Complete Database Management Suite
+In addition to the audit trail and monitoring system, I've added a comprehensive database management suite that includes:
 
+Seed Script - Populate database with realistic test data
+
+Reset Script - Clean database for fresh testing
+
+Migration System - Version-controlled schema changes
+
+Data Generation - Create realistic payment scenarios
+
+Testing Utilities - Pre-built test cases for validation
+
+Why this matters for FinTech:
+
+Development Speed - Pre-populated data for immediate testing
+
+Consistent Testing - Reproducible test scenarios
+
+CI/CD Integration - Automated database setup in pipelines
+
+Onboarding - New developers can start testing immediately
 
 ### Developer's Choice (Additional Features)
 
