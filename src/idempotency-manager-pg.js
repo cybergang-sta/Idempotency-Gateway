@@ -10,6 +10,7 @@ class PostgresIdempotencyManager {
     const poolConfig = {};
     if (config.DATABASE_URL || config.connectionString) {
       poolConfig.connectionString = config.DATABASE_URL || config.connectionString;
+      poolConfig.ssl = { rejectUnauthorized: false };
     } else {
       poolConfig.host = config.DB_HOST;
       poolConfig.port = config.DB_PORT;
