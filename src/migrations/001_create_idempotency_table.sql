@@ -133,8 +133,9 @@ DECLARE
     deleted_count INTEGER;
 BEGIN
     DELETE FROM idempotency_store
-    WHERE expires_at < CURRENT_TIMESTAMP
-    RETURNING COUNT(*) INTO deleted_count;
+    WHERE expires_at < CURRENT_TIMESTAMP;
+
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
     
     RETURN deleted_count;
 END;
