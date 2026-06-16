@@ -47,6 +47,8 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+-- Ensure trigger is idempotent: drop if exists then create
+DROP TRIGGER IF EXISTS update_idempotency_store_updated_at ON idempotency_store;
 CREATE TRIGGER update_idempotency_store_updated_at
     BEFORE UPDATE ON idempotency_store
     FOR EACH ROW
@@ -71,6 +73,9 @@ DECLARE
 BEGIN
     v_expires_at := CURRENT_TIMESTAMP + (p_ttl_hours || ' hours')::INTERVAL;
     
+    -- Acquire an advisory lock based on the key to serialize concurrent callers
+    PERFORM pg_advisory_xact_lock(hashtext(p_key)::bigint);
+
     -- Try to get existing record with row lock
     SELECT * INTO existing_record
     FROM idempotency_store
