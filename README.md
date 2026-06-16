@@ -70,43 +70,40 @@ A production-ready idempotency layer for payment processing systems that prevent
 
 
 
-### 2. Setup Instructions
-
-## Prerequisites
+## 2. Setup Instructions
+### Prerequisites
 - Node.js (v16 or higher)
 - PostgreSQL (v13 or higher)
 - npm or yarn
 - Git
 - Docker for containerized setup
 
-## Installation
+## 3. Installation
 
-## Option 1
-# Local PostgreSQL Setup
-
+### Option 1: Local PostgreSQL Setup
 ```bash
 # 1. Install PostgreSQL on your system
 # macOS: brew install postgresql
 # Ubuntu: sudo apt-get install postgresql
 # Windows: Download from postgresql.org
 
-# Create database
+# 2. Create database
 createdb idempotency_gateway
 
-# Clone the repository
+# 3. Clone the repository
 git clone https://github.com/cybergang-sta/idempotency-gateway.git
 cd idempotency-gateway
 
-# Install dependencies
+# 4. Install dependencies
 npm install
 
-# Update environment variables with your PostgreSQL credentials
+# 5. Update environment variables with your PostgreSQL credentials
 cp .env.example .env
 
-# Run migrations
+# 6. Run migrations
 npm run db:migrate
 
-# Start the server
+# 7. Start the server
 npm start
 
 # For development with auto-reload
@@ -117,8 +114,10 @@ npm test
 
 # Run concurrency tests specifically
 npm run test:concurrency
+```
 
-## Option 2: Docker Setup (Recommended)
+### Option 2: Docker Setup 
+```bash
 # Start PostgreSQL and app together
 docker-compose up -d
 
@@ -129,17 +128,17 @@ docker-compose logs -f app
 docker-compose down
 
 
-### Environment Variables
+## Environment Variables
 Variable	            Default	            Description
 PORT	                 3000	            Server port
-NODE_ENV	           development	        env mode
-IDEMPOTENCY_TTL_HOURS	  24	        How long to store keys (hours)
-PROCESSING_DELAY_MS	     2000	          Simulated payment delay (ms)
+NODE_ENV	           development	        environment mode
+IDEMPOTENCY_TTL_HOURS	  24 hours          How long to store keys 
+PROCESSING_DELAY_MS	     2000ms 	        Simulated payment delay 
 
-### API Documentation
-# Endpoint: POST /process-payment
+## API Documentation
+### Endpoint: POST /process-payment
 Processes a payment with idempotency guarantee.
-
+```bash
 # Headers
 Header	         Type	Required	Description
 Idempotency-Key	string	  Yes	Unique identifier for the request (UUID)
@@ -147,10 +146,8 @@ Content-Type	string    Yes	Must be application/json
 
 # Request Body Schema
 {
-  amount: number;      
-  currency: string;    
-  customerId?: string; 
-  metadata?: object;   
+  "amount": number,
+  "currency": string
 }
 # Example Request
 curl -X POST http://localhost:3000/process-payment \
@@ -158,41 +155,44 @@ curl -X POST http://localhost:3000/process-payment \
   -H "Content-Type: application/json" \
   -d '{
     "amount": 100,
-    "currency": "GHS",
-    "customerId": "cus_67890"
+    "currency": "GHS"
   }'
 
 # Success Response (200 OK)
-    First Request (Cache Miss)
+- First Request (Cache Miss)
 {
-  "status": "success",
-  "message": "Charged 100 GHS",
-  "transactionId": "TXN_1702345678901_abc123_1",
-  "timestamp": "2024-12-11T10:30:00.000Z",
-  "amount": 100,
-  "currency": "GHS",
-  "customerId": "cus_67890"
+  "status": "Charged 100 GHS"
 }
 
 ### Response Headers
 Header	            Description
-X-Cache-Hit	true if response was from cache (duplicate), false if freshly processed
+X-Cache-Hit	true if response was from cache or duplicate, false if freshly processed
 
 ### Error Responses
-Status	Code	                Description
-400	Bad Request	            Missing required fields or invalid values
-409	Conflict	            Idempotency key reused with different request body
-500	Internal Server Error	Unexpected processing error
+- 400 Bad Request - Missing Idempotency Key
+{
+  "error": "Missing Idempotency-Key header"
+}
 
-GET /health                 Health check endpoint for monitoring.
+- 409 Conflict - Different Body with Same Key
+{
+  "error": "Idempotency key already used for a different request body"
+}
 
-GET /stats                  Admin endpoint for system monitoring.
+- 500 Internal Server Error
+{
+  "error": "Internal server error"
+}
+```
+### Additional Endpoints
+- GET /health
+        Health check endpoint for monitoring.
 
-### Design Decisions
+- GET /stats
+        Admin endpoint for system monitoring.
 
----
 
-### 5. Design Decisions
+## 4. Design Decisions
 
 ### Decision 1: Migration from In-Memory Store to PostgreSQL
 
@@ -223,7 +223,7 @@ GET /stats                  Admin endpoint for system monitoring.
 - **Scalability:** Can handle millions of keys, unlike RAM-limited Map
 - **Query Capability:** SQL analytics for fraud detection
 
-**Trade-off:** Slightly higher latency (~2-5ms, but worth it for persistence
+**Trade-off:** Slightly higher latency 2-5ms, but worth it for persistence
 
 ### Decision 3: Atomic Database Operation Pattern
 
@@ -237,10 +237,10 @@ BEGIN
   -- Atomic check-and-create
 END;
 $$;
-
+```
 
 ### Decision 4: In-Flight Request Handling with Row Locking
-
+```sql
 -- Status 'processing' indicates in-flight request
 INSERT INTO idempotency_store (idempotency_key, status) 
 VALUES ('key-123', 'processing');
@@ -248,7 +248,7 @@ VALUES ('key-123', 'processing');
 -- Concurrent requests see 'processing' and wait
 SELECT * FROM idempotency_store WHERE idempotency_key = 'key-123' FOR UPDATE;
 -- This blocks until the first transaction completes
-
+```
 Why this prevents race conditions:
 
 PostgreSQL SELECT FOR UPDATE creates a row-level lock
@@ -260,13 +260,13 @@ Eliminates the need for application-level mutexes
 Works across multiple server instances
 
 ### Decision 5: 24-Hour TTL with Automated Cleanup
-
+```sql
 -- Set expiration when creating record
 expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '24 hours'
 
 -- Scheduled cleanup job (runs every hour)
 DELETE FROM idempotency_store WHERE expires_at < CURRENT_TIMESTAMP;
-
+```
 Rationale for 24 hours:
 
 Payment reconciliation cycles are typically daily
@@ -275,12 +275,46 @@ Long enough for all retry scenarios (network issues, timeouts)
 
 Short enough to prevent unbounded database growth
 
-Compliant with GDPR data minimization principles
+Compliant with regulations for data minimization principles
 
 
-### Decision 6: Separate Audit Log Table Design
-Schema:
-    CREATE TABLE idempotency_audit_log (
+### Decision 6: Request Body Hashing with SHA256
+Implementation:
+```javascript
+hashRequestBody(body) {
+  const normalized = JSON.stringify(body, Object.keys(body).sort());
+  return crypto.createHash('sha256').update(normalized).digest('hex');
+}
+```
+Why its not ideal to store full body:
+
+Memory Efficiency: 64 bytes vs potentially KBs of JSON
+
+Personal Identifiable Information Compliance: Protects sensitive customer data
+
+Index Performance: Hash indexes are faster than JSONB comparisons
+
+Security: Cannot reconstruct original request from hash alone
+
+
+
+## Developer's Choice 
+
+### Transaction Audit Trail System
+
+**Why this matters for FinTech:**
+
+In real-world FinTech, you can't just prevent double charging - you must be able to prove you prevented it. When a customer disputes a charge, regulators ask: "Show us every request and what you did with it.
+
+In production payment systems, you need:
+- **Auditability** - Every charge must be traceable for compliance 
+- **Fraud Detection** - Detect patterns of idempotency key abuse
+- **Operational Visibility** - Real-time monitoring of system health
+
+**Complete Implementation:**
+The system logs every idempotency event with full context:
+```sql
+CREATE TABLE idempotency_audit_log (
   id BIGSERIAL PRIMARY KEY,
   idempotency_key VARCHAR(255),
   action VARCHAR(50), -- 'PROCESSED', 'CACHE_HIT', 'CONFLICT'
@@ -290,127 +324,24 @@ Schema:
   user_agent TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+```
+#### Business Value
 
-Benefits of separation:
+Metric	                        Before	             After Implementation
+Fraud detection time	         Days	                    Minutes 
 
-Performance: Main table stays small for fast lookups
+Debugging duplicate charges	     Hours	                30 seconds via /audit endpoint
 
-Compliance: Audit logs can be archived separately
+Compliance audit preparation	 Weeks	                Minutes to export audit logs
 
-Analytics: Query patterns without locking main table
+Cache effectiveness visibility	 None	                Real-time hit ratio
 
-### Decision 7: 409 Conflict vs 422 Unprocessable Entity
-Choice: HTTP 409 Conflict
-
-This specifies 409 for "request conflict with current state of the resource" - perfect for idempotency key mismatch where the key already maps to a different request body. 422 is for validation errors such as invalid currency code.
-
-### Decision 8: Graceful Shutdown with Connection Draining
-process.on('SIGTERM', async () => {
-  console.log('Received SIGTERM, closing server...');
-  server.close(async () => {
-    await idempotencyManager.shutdown(); // Close DB connections
-    console.log('Server closed');
-    process.exit(0);
-  });
-});
-
-Why it is critical for production:
-
-Prevents connection leaks to PostgreSQL
-
-Allows in-flight transactions to complete
-
-Enables zero-downtime deployments
-
-
-### Decision 9: Request Body Hashing with SHA256
-
-**Implementation:**
-```javascript
-hashRequestBody(body) {
-  const normalized = JSON.stringify(body, Object.keys(body).sort());
-  return crypto.createHash('sha256').update(normalized).digest('hex');
-}
-Why its not ideal to store full body:
-
-Memory Efficiency: 64 bytes vs potentially KBs of JSON
-
-PII Compliance: ensures that organizations collect, store, and process personal data securely to protect individuals from identity theft and shield companies from severe financial penalties.
-
-Index Performance: Hash indexes are faster than JSONB comparisons
-
-Security: Cannot reconstruct original request from hash alone
-
-### Decision 10: Complete Database Management Suite
-In addition to the audit trail and monitoring system, I've added a comprehensive database management suite that includes:
-
-Seed Script - Populate database with realistic test data
-
-Reset Script - Clean database for fresh testing
-
-Migration System - Version-controlled schema changes
-
-Data Generation - Create realistic payment scenarios
-
-Testing Utilities - Pre-built test cases for validation
-
-Why this matters for FinTech:
-
-Development Speed - Pre-populated data for immediate testing
-
-Consistent Testing - Reproducible test scenarios
-
-CI/CD Integration - Automated database setup in pipelines
-
-Onboarding - New developers can start testing immediately
-
-### Developer's Choice (Additional Features)
-
-### Feature 1: Transaction Audit Trail System
-
-**Why this matters for FinTech:**
-
-In production payment systems, you need:
-- **Auditability** - Every charge must be traceable for compliance (PCI-DSS, GDPR)
-- **Fraud Detection** - Detect patterns of idempotency key abuse
-- **Operational Visibility** - Real-time monitoring of system health
-
-**Complete Implementation:**
-
-```javascript
-// src/idempotency-manager-pg.js
-class PostgresIdempotencyManager {
-  async auditLog({ key, action, requestBody, responseBody, cacheHit, 
-                   processingTimeMs, clientInfo }) {
-    const client = await this.pool.connect();
-    try {
-      await client.query(
-        `INSERT INTO idempotency_audit_log 
-         (idempotency_key, action, request_body, response_body, cache_hit, 
-          processing_time_ms, client_ip, user_agent)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [
-          key, 
-          action, 
-          JSON.stringify(requestBody), 
-          responseBody ? JSON.stringify(responseBody) : null,
-          cacheHit, 
-          processingTimeMs, 
-          clientInfo?.ip || null, 
-          clientInfo?.userAgent || null
-        ]
-      );
-    } finally {
-      client.release();
-    }
-  }
-}
-
-**How to use the audit trail**
+#### How to Use
+```bash
 # View audit trail for a specific transaction
 curl http://localhost:3000/audit/ord_12345
 
-# Response shows complete history
+# Response
 {
   "idempotencyKey": "ord_12345",
   "auditTrail": [
@@ -429,101 +360,9 @@ curl http://localhost:3000/audit/ord_12345
     }
   ]
 }
+```
 
-### Feature 2: TReal-Time Monitoring Endpoint
-// src/server.js
-app.get('/stats', async (req, res) => {
-  const stats = await idempotencyManager.getStats();
-  
-  res.json({
-    cachePerformance: {
-      hitRate: stats.hitRate,
-      avgResponseTimeMs: stats.avgResponseTimeMs,
-      requestsLastHour: stats.lastHourRequests
-    },
-    database: {
-      activeKeys: stats.activeKeys,
-      processingKeys: stats.processingKeys,
-      failedKeys: stats.failedKeys
-    },
-    health: {
-      status: stats.errorRate < 0.01 ? 'healthy' : 'degraded',
-      uptime: process.uptime()
-    }
-  });
-});
-
-Sample Output:
-{
-  "cachePerformance": {
-    "hitRate": "87.5%",
-    "avgResponseTimeMs": 3,
-    "requestsLastHour": 156
-  },
-  "database": {
-    "activeKeys": 42,
-    "processingKeys": 0,
-    "failedKeys": 1
-  },
-  "health": {
-    "status": "healthy",
-    "uptime": 3600.5
-  }
-}
-
-## Feature 3: Fraud Detection Queries
--- Detect key reuse abuse (potential fraud)
-SELECT client_ip, COUNT(*) as abuse_attempts
-FROM idempotency_audit_log
-WHERE action = 'CONFLICT'
-  AND created_at > NOW() - INTERVAL '1 hour'
-GROUP BY client_ip
-HAVING COUNT(*) > 10
-ORDER BY abuse_attempts DESC;
-
--- Find stuck transactions (system issues)
-SELECT idempotency_key, 
-       created_at,
-       EXTRACT(EPOCH FROM (NOW() - created_at)) as stuck_seconds
-FROM idempotency_store
-WHERE status = 'processing' 
-  AND created_at < NOW() - INTERVAL '5 minutes';
-
--- Daily cache effectiveness report
-SELECT 
-  DATE(created_at) as date,
-  COUNT(*) as total,
-  SUM(CASE WHEN cache_hit THEN 1 ELSE 0 END) as cache_hits,
-  ROUND(100.0 * SUM(CASE WHEN cache_hit THEN 1 ELSE 0 END) / COUNT(*), 2) as hit_rate
-FROM idempotency_audit_log
-GROUP BY DATE(created_at)
-ORDER BY date DESC;
-
-#Business Impact Metrics
-Metric	                     Before	                After Implementation
-Fraud detection time	     Days                    	Minutes (automated)
-Debugging duplicate charges	 Hours                  log spelunking	30 seconds via /audit endpoint
-
-Compliance audit preparation Weeks	                Minutes to export audit logs
-
-Cache effectiveness visibility None	                Real-time hit ratio
-
-Mean time to resolution (MTTR) 4 hours	                15 minutes
-
-
-
-### Testing Strategy
-Covered Scenarios
-**Happy Path** - First request processes with 2s delay  
-**Idempotency** - Duplicate requests return cached response  
-**Conflict Detection** - Different body with same key → 409  
-**Concurrent Requests** - 5 simultaneous identical requests → 1 processes, 4 wait and cache  
-**Validation** - Missing headers/invalid data → proper 400 responses  
-**Persistence** - Server restart doesn't lose idempotency data  
-**Audit Trail** - All actions logged with timestamps
-
-### Running All Tests
-
+## Testing Strategy
 ```bash
 # Run the complete test suite
 npm test
@@ -538,8 +377,10 @@ npm run test:concurrency
 
 # Run with coverage report
 npm test -- --coverage
+```
 
-## Manual Test Commands;
+### Manual Test Commands
+```bash
 # 1. Health check
 curl http://localhost:3000/health
 
@@ -564,10 +405,10 @@ curl -X POST http://localhost:3000/process-payment \
 # Expected: 409 Conflict with error message
 
 # 5. View monitoring stats
-curl http://localhost:3000/stats | jq '.'
+curl http://localhost:3000/stats
 
 # 6. View audit trail
-curl http://localhost:3000/audit/test-001 | jq '.'
+curl http://localhost:3000/audit/test-001
 
 # 7. Test race condition (5 simultaneous requests)
 for i in {1..5}; do
@@ -586,51 +427,30 @@ curl -X POST http://localhost:3000/process-payment \
   -H "Content-Type: application/json" \
   -d '{"amount": 100, "currency": "GHS"}'
 # Expected: Still returns cached response (X-Cache-Hit: true)
+```
 
-## Database Verification and Troubleshooting Test Failures
-# Connect to PostgreSQL
-psql -d idempotency_gateway -U postgres
+## Covered Scenarios
+- Happy Path - First request processes with 2s delay
 
-# Check stored records
-SELECT idempotency_key, status, created_at, expires_at 
-FROM idempotency_store 
-ORDER BY created_at DESC 
-LIMIT 10;
+- Idempotency - Duplicate requests return cached response
 
-# Check audit log
-SELECT action, cache_hit, processing_time_ms, created_at 
-FROM idempotency_audit_log 
-ORDER BY created_at DESC 
-LIMIT 10;
+- Conflict Detection - Different body with same key → 409
 
-# Check cache hit rate
-SELECT 
-  ROUND(100.0 * SUM(CASE WHEN cache_hit THEN 1 ELSE 0 END) / COUNT(*), 2) as hit_rate
-FROM idempotency_audit_log;
+- Concurrent Requests - 5 simultaneous identical requests → 1 processes, 4 wait and cache
 
+- Validation - Missing headers/invalid data → proper 400 responses
 
-Issue	                                Solution
+- Persistence - Server restart doesn't lose idempotency data
 
-PostgreSQL connection refused	     Check DB is running: docker-compose ps
+- Audit Trail - All actions logged with timestamps
 
-Migrations not running	             Run "npm run db:migrate"
+## Contribution
+**This implementation follows:**
 
-Port 3000 in use	                 Change PORT in .env or kill process: lsof -ti:3000
+    **All Solid capstone principles**
 
-Tests timing out	                 Increase timeout: jest --testTimeout=10000
+    **Clean Architecture patterns**
 
-Concurrent test failing	             Check idempotency-manager-pg.js has row locking
+    **Comprehensive error handling**
 
-Audit log empty	                     Check database permissions and connection
-
-
-# Contributing
-This implementation follows:
-
-All SOLID capstone principles
-
-Clean Architecture patterns
-
-Comprehensive error handling
-
-Production-grade logging
+    **Production-grade logging**
