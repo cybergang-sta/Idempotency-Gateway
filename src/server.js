@@ -14,6 +14,7 @@ const idempotencyManager = new PostgresIdempotencyManager({
   DB_NAME: process.env.DB_NAME || 'idempotency_gateway',
   DB_USER: process.env.DB_USER || 'postgres',
   DB_PASSWORD: process.env.DB_PASSWORD || 'postgres',
+  DATABASE_URL: process.env.DATABASE_URL || undefined,
   IDEMPOTENCY_TTL_HOURS: parseInt(process.env.IDEMPOTENCY_TTL_HOURS) || 24,
   CLEANUP_INTERVAL_HOURS: parseInt(process.env.CLEANUP_INTERVAL_HOURS) || 1,
 });

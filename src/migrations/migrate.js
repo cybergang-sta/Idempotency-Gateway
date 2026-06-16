@@ -3,13 +3,18 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'idempotency_gateway',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-});
+const poolConfig = {};
+if (process.env.DATABASE_URL) {
+  poolConfig.connectionString = process.env.DATABASE_URL;
+} else {
+  poolConfig.host = process.env.DB_HOST || 'localhost';
+  poolConfig.port = process.env.DB_PORT || 5432;
+  poolConfig.database = process.env.DB_NAME || 'idempotency_gateway';
+  poolConfig.user = process.env.DB_USER || 'postgres';
+  poolConfig.password = process.env.DB_PASSWORD || 'postgres';
+}
+
+const pool = new Pool(poolConfig);
 
 async function migrate() {
   const client = await pool.connect();

@@ -7,16 +7,22 @@ const crypto = require('crypto');
  */
 class PostgresIdempotencyManager {
   constructor(config) {
-    this.pool = new Pool({
-      host: config.DB_HOST,
-      port: config.DB_PORT,
-      database: config.DB_NAME,
-      user: config.DB_USER,
-      password: config.DB_PASSWORD,
-      max: config.DB_POOL_MAX || 20,
-      idleTimeoutMillis: config.DB_POOL_IDLE_TIMEOUT || 30000,
-      connectionTimeoutMillis: config.DB_POOL_CONNECTION_TIMEOUT || 2000,
-    });
+    const poolConfig = {};
+    if (config.DATABASE_URL || config.connectionString) {
+      poolConfig.connectionString = config.DATABASE_URL || config.connectionString;
+    } else {
+      poolConfig.host = config.DB_HOST;
+      poolConfig.port = config.DB_PORT;
+      poolConfig.database = config.DB_NAME;
+      poolConfig.user = config.DB_USER;
+      poolConfig.password = config.DB_PASSWORD;
+    }
+
+    poolConfig.max = config.DB_POOL_MAX || 20;
+    poolConfig.idleTimeoutMillis = config.DB_POOL_IDLE_TIMEOUT || 30000;
+    poolConfig.connectionTimeoutMillis = config.DB_POOL_CONNECTION_TIMEOUT || 2000;
+
+    this.pool = new Pool(poolConfig);
     
     this.ttlHours = config.IDEMPOTENCY_TTL_HOURS || 24;
     this.cleanupInterval = (config.CLEANUP_INTERVAL_HOURS || 1) * 60 * 60 * 1000;
