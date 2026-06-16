@@ -68,8 +68,6 @@ A production-ready idempotency layer for payment processing systems that prevent
 └─────────────────────────────────────────────────────────────────┘
 
 
-
-
 ## 2. Setup Instructions
 ### Prerequisites
 - Node.js (v16 or higher)
@@ -116,7 +114,9 @@ npm test
 npm run test:concurrency
 ```
 
+````markdown
 ### Option 2: Docker Setup 
+
 ```bash
 # Start PostgreSQL and app together
 docker-compose up -d
@@ -126,23 +126,27 @@ docker-compose logs -f app
 
 # Stop services
 docker-compose down
-
+```
 
 ## Environment Variables
-Variable	            Default	            Description
-PORT	                 3000	            Server port
-NODE_ENV	           development	        environment mode
-IDEMPOTENCY_TTL_HOURS	  24 hours          How long to store keys 
-PROCESSING_DELAY_MS	     2000ms 	        Simulated payment delay 
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| PORT | 3000 | Server port |
+| NODE_ENV | development | environment mode |
+| IDEMPOTENCY_TTL_HOURS | 24 hours | How long to store keys |
+| PROCESSING_DELAY_MS | 2000ms | Simulated payment delay |
 
 ## API Documentation
 ### Endpoint: POST /process-payment
 Processes a payment with idempotency guarantee.
-```bash
 # Headers
-Header	         Type	Required	Description
-Idempotency-Key	string	  Yes	Unique identifier for the request (UUID)
-Content-Type	string    Yes	Must be application/json
+```
+| Header | Type | Required | Description |
+|--------|------|----------|-------------|
+| Idempotency-Key | string | Yes | Unique identifier for the request (UUID) |
+| Content-Type | string | Yes | Must be application/json |
+```
 
 # Request Body Schema
 {
@@ -184,13 +188,11 @@ X-Cache-Hit	true if response was from cache or duplicate, false if freshly proce
   "error": "Internal server error"
 }
 ```
+```markdown
 ### Additional Endpoints
-- GET /health
-        Health check endpoint for monitoring.
 
-- GET /stats
-        Admin endpoint for system monitoring.
-
+- **GET /health** - Health check endpoint for monitoring
+- **GET /stats** - Admin endpoint for system monitoring
 
 ## 4. Design Decisions
 
@@ -298,16 +300,17 @@ Security: Cannot reconstruct original request from hash alone
 
 
 
-## Developer's Choice 
+## 5. Developer's Choice 
 
 ### Transaction Audit Trail System
 
 **Why this matters for FinTech:**
 
-In real-world FinTech, you can't just prevent double charging - you must be able to prove you prevented it. When a customer disputes a charge, regulators ask: "Show us every request and what you did with it.
+In real-world FinTech, you can't just prevent double charging - you must be able to prove you prevented it. When a customer disputes a charge, regulators ask: "Show us every request and what you did with it."
 
 In production payment systems, you need:
-- **Auditability** - Every charge must be traceable for compliance 
+
+- **Auditability** - Every charge must be traceable for compliance
 - **Fraud Detection** - Detect patterns of idempotency key abuse
 - **Operational Visibility** - Real-time monitoring of system health
 
@@ -326,15 +329,14 @@ CREATE TABLE idempotency_audit_log (
 );
 ```
 #### Business Value
+```markdown
+| Metric | Before | After Implementation |
+|--------|--------|----------------------|
+| Fraud detection time | Days | Minutes |
+| Debugging duplicate charges | Hours | 30 seconds via /audit endpoint |
+| Compliance audit preparation | Weeks | Minutes to export audit logs |
+| Cache effectiveness visibility | None | Real-time hit ratio |
 
-Metric	                        Before	             After Implementation
-Fraud detection time	         Days	                    Minutes 
-
-Debugging duplicate charges	     Hours	                30 seconds via /audit endpoint
-
-Compliance audit preparation	 Weeks	                Minutes to export audit logs
-
-Cache effectiveness visibility	 None	                Real-time hit ratio
 
 #### How to Use
 ```bash
@@ -362,7 +364,7 @@ curl http://localhost:3000/audit/ord_12345
 }
 ```
 
-## Testing Strategy
+## 6. Testing Strategy
 ```bash
 # Run the complete test suite
 npm test
@@ -429,7 +431,7 @@ curl -X POST http://localhost:3000/process-payment \
 # Expected: Still returns cached response (X-Cache-Hit: true)
 ```
 
-## Covered Scenarios
+## 7. Covered Scenarios
 - Happy Path - First request processes with 2s delay
 
 - Idempotency - Duplicate requests return cached response
@@ -444,13 +446,9 @@ curl -X POST http://localhost:3000/process-payment \
 
 - Audit Trail - All actions logged with timestamps
 
-## Contribution
+## 8. Contribution
 **This implementation follows:**
-
-    **All Solid capstone principles**
-
-    **Clean Architecture patterns**
-
-    **Comprehensive error handling**
-
-    **Production-grade logging**
+- All SOLID principles
+- Clean Architecture patterns
+- Comprehensive error handling
+- Production-grade logging
